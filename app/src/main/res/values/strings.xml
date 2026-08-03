@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">米9 连点器</string>
+    <string name="accessibility_service_name">米9 连点器点击服务</string>
+    <string name="accessibility_description">根据你设置的位置、速度和次数执行自动点击。只有点击进行时才会发送手势。</string>
+    <string name="notification_channel_name">悬浮控制</string>
+    <string name="notification_title">米9 连点器正在待命</string>
+    <string name="notification_text">点按返回设置页；可在悬浮窗开始或暂停。</string>
+    <string name="config_summary">位置 %1$d, %2$d  ·  %3$d CPS  ·  %4$s 次</string>
+</resources>
