@@ -13,7 +13,10 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
@@ -39,6 +42,17 @@ public final class OverlayService extends Service implements ClickAccessibilityS
     private Button startStopButton;
     private int screenWidth;
     private int screenHeight;
+    private final Handler guardHandler = new Handler(Looper.getMainLooper());
+    private int disconnectedChecks;
+    private boolean guardRebinding;
+    private long lastGuardRepairAt;
+    private final Runnable accessibilityGuard = new Runnable() {
+        @Override
+        public void run() {
+            runAccessibilityGuard();
+            guardHandler.postDelayed(this, 2_000L);
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -52,6 +66,7 @@ public final class OverlayService extends Service implements ClickAccessibilityS
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         refreshScreenSize();
         showOverlay();
+        guardHandler.postDelayed(accessibilityGuard, 1_000L);
     }
 
     @Override
@@ -66,6 +81,7 @@ public final class OverlayService extends Service implements ClickAccessibilityS
 
     @Override
     public void onDestroy() {
+        guardHandler.removeCallbacksAndMessages(null);
         ClickAccessibilityService service = ClickAccessibilityService.getInstance();
         if (service != null) {
             service.stopClicking("悬浮控制已关闭");
@@ -285,6 +301,12 @@ public final class OverlayService extends Service implements ClickAccessibilityS
     private void toggleClicking() {
         ClickAccessibilityService service = ClickAccessibilityService.getInstance();
         if (service == null) {
+            if (AccessibilityGuard.hasSecureSettingsPermission(this)) {
+                statusText.setText(R.string.guard_restoring);
+                startGuardRebind(true);
+                Toast.makeText(this, "正在自动恢复点击服务，请稍后再按开始", Toast.LENGTH_LONG).show();
+                return;
+            }
             Toast.makeText(this, "请先在无障碍设置中启用“米9 连点器点击服务”", Toast.LENGTH_LONG).show();
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -303,6 +325,49 @@ public final class OverlayService extends Service implements ClickAccessibilityS
                 ClickConfig.getCount(this),
                 this
         );
+    }
+
+    private void runAccessibilityGuard() {
+        if (ClickAccessibilityService.isConnected()) {
+            disconnectedChecks = 0;
+            if (AccessibilityGuard.hasSecureSettingsPermission(this)
+                    && !AccessibilityGuard.isGlobalAccessibilityEnabled(this)) {
+                AccessibilityGuard.ensureOwnServiceEnabled(this);
+            }
+            return;
+        }
+        if (!AccessibilityGuard.hasSecureSettingsPermission(this) || guardRebinding) {
+            return;
+        }
+        disconnectedChecks++;
+        if (disconnectedChecks < 2) {
+            return;
+        }
+        startGuardRebind(false);
+    }
+
+    private void startGuardRebind(boolean force) {
+        if (guardRebinding || !AccessibilityGuard.hasSecureSettingsPermission(this)) {
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        if (!force && now - lastGuardRepairAt < 8_000L) {
+            return;
+        }
+        guardRebinding = true;
+        lastGuardRepairAt = now;
+        disconnectedChecks = 0;
+        boolean wasListed = AccessibilityGuard.isOwnServiceListed(this);
+        if (wasListed) {
+            AccessibilityGuard.removeOwnService(this);
+        }
+        guardHandler.postDelayed(() -> {
+            boolean restored = AccessibilityGuard.ensureOwnServiceEnabled(this);
+            guardRebinding = false;
+            if (statusText != null) {
+                statusText.setText(restored ? R.string.guard_restarting : R.string.guard_failed);
+            }
+        }, wasListed ? 800L : 0L);
     }
 
     private void changeCps(int delta) {

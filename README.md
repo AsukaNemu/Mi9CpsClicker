@@ -4,9 +4,9 @@
 [![Release](https://img.shields.io/github/v/release/AsukaNemu/Mi9CpsClicker?display_name=tag)](https://github.com/AsukaNemu/Mi9CpsClicker/releases/latest)
 [![Device](https://img.shields.io/badge/device-Xiaomi%20Mi%209%20%2F%20cepheus-FF6900)](https://github.com/AsukaNemu/Mi9CpsClicker)
 
-专为小米 9（`cepheus`）制作的轻量级单点 CPS 连点器。通过 Android 无障碍手势执行点击，提供桌面应用入口、可拖动悬浮准星以及悬浮开始/暂停控制；日常运行不依赖 Root。
+专为小米 9（`cepheus`）制作的轻量级单点 CPS 连点器。通过 Android 无障碍手势执行点击，提供桌面应用入口、可拖动悬浮准星以及悬浮开始/暂停控制；普通点击不依赖 Root，Root 设备可启用无障碍自动修复。
 
-> [下载最新 APK](https://github.com/AsukaNemu/Mi9CpsClicker/releases/latest) · 当前版本：`v1.0.0`
+> [下载最新 APK](https://github.com/AsukaNemu/Mi9CpsClicker/releases/latest) · 当前版本：`v1.0.1`
 
 ## 项目信息
 
@@ -15,11 +15,11 @@
 | 主要设备 | Xiaomi Mi 9 / cepheus |
 | 实机验证 | Android 11（API 30）、1080 × 2340、440 dpi |
 | 最低系统 | Android 7.0（API 24） |
-| Target SDK | Android 15（API 35） |
+| Target SDK | Android 16（API 36） |
 | 点击模式 | 单点循环点击 |
 | 点击速度 | 1–50 CPS |
 | 点击次数 | 1–1,000,000，填写 `0` 为无限循环 |
-| Root | 不需要 |
+| Root | 普通点击不需要；自动修复无障碍需要 |
 
 ## 功能
 
@@ -32,10 +32,11 @@
 - 点击进度显示
 - 前台通知，便于返回设置页
 - 点击开始后准星自动变为不可触摸状态，使手势落到下方目标应用
+- Root 自愈守护：MIUI/小爱关闭无障碍后自动重绑点击服务
 
 ## 安装
 
-1. 前往 [Releases](https://github.com/AsukaNemu/Mi9CpsClicker/releases/latest) 下载 `Mi9-CPS-Clicker-v1.0.0.apk`。
+1. 前往 [Releases](https://github.com/AsukaNemu/Mi9CpsClicker/releases/latest) 下载 `Mi9-CPS-Clicker-v1.0.1.apk`。
 2. 在手机上允许当前文件管理器或浏览器“安装未知应用”。
 3. 安装 APK。
 4. 从桌面或应用列表打开“米9 连点器”。
@@ -43,7 +44,7 @@
 也可以在连接 ADB 后安装：
 
 ```bash
-adb install -r Mi9-CPS-Clicker-v1.0.0.apk
+adb install -r Mi9-CPS-Clicker-v1.0.1.apk
 ```
 
 ## 首次设置
@@ -52,6 +53,7 @@ adb install -r Mi9-CPS-Clicker-v1.0.0.apk
 
 1. 点击“打开无障碍设置”，启用“米9 连点器点击服务”。
 2. 点击“允许悬浮窗权限”，允许应用显示在其他应用上层。
+3. Root 设备建议点击“授权 Root 自动修复”，在 Magisk 中允许一次授权。
 
 完成后回到主界面，两项状态会显示为绿色。
 
@@ -80,10 +82,12 @@ adb install -r Mi9-CPS-Clicker-v1.0.0.apk
 | 悬浮窗 | 显示准星和开始/暂停面板 |
 | 前台服务 | 保持悬浮控制在切换应用后继续运行 |
 | 通知 | 显示前台服务状态并返回设置页 |
+| 安全设置（可选） | Root 授权后，在 MIUI 关闭无障碍时重新绑定本应用的点击服务 |
 
 - 无障碍配置明确设置为 `canRetrieveWindowContent=false`，应用不读取其他应用的窗口内容。
 - Manifest 未声明网络权限，应用不会上传点击坐标或使用数据。
-- 应用不会请求、调用或依赖 Root 权限。
+- 普通点击不会调用 Root；只有用户主动点击“授权 Root 自动修复”时才会通过 Magisk 执行一次 `pm grant`。
+- 自愈逻辑只维护本应用的无障碍组件，并保留系统中其他已启用的无障碍服务。
 - 设置只保存在本机的 `SharedPreferences` 中。
 
 ## 兼容性与限制
@@ -104,6 +108,8 @@ adb install -r Mi9-CPS-Clicker-v1.0.0.apk
 3. MIUI 电量管理是否限制了本应用的后台运行。
 4. 准星是否位于系统导航栏、通知栏或悬浮面板自身上方。
 5. 将 CPS 降到 10 后重新测试。
+
+部分 MIUI/小爱语音助手版本会在后台任务启动时关闭无障碍总开关。v1.0.1 的 Root 自愈守护会在悬浮控制运行期间每 2 秒检查一次状态；发现服务失联后，仅移除并重新加入本应用的无障碍组件，然后恢复总开关。
 
 更新或重装 APK 后，MIUI 可能要求重新确认无障碍与悬浮窗权限。
 
@@ -141,12 +147,13 @@ app/build/outputs/apk/debug/app-debug.apk
 - `TYPE_APPLICATION_OVERLAY` 悬浮准星与控制面板
 - 前台 `Service` 保持悬浮控制生命周期
 - `SharedPreferences` 保存坐标、CPS 与次数
+- `WRITE_SECURE_SETTINGS`（Root/ADB 授权）恢复被 MIUI 关闭的无障碍服务
 
-## v1.0.0 校验值
+## v1.0.1 校验值
 
 ```text
 SHA-256
-F00D2609348B85FC78F9AA6A6724F9AA2975677DE320109306D2859914218B70
+901EC6E8FE9330A59405F1984B249829C2AB5635F14F09346A1EF87A2DDD4DC0
 ```
 
 ## 许可证

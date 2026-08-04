@@ -32,6 +32,8 @@ public final class MainActivity extends Activity {
 
     private TextView overlayStatus;
     private TextView accessibilityStatus;
+    private TextView rootGuardStatus;
+    private Button rootGuardButton;
     private EditText xInput;
     private EditText yInput;
     private EditText cpsInput;
@@ -106,6 +108,14 @@ public final class MainActivity extends Activity {
         Button overlayPermissionButton = secondaryButton("允许悬浮窗权限");
         permissionCard.addView(overlayPermissionButton, buttonParams());
         overlayPermissionButton.setOnClickListener(v -> openOverlayPermission());
+
+        rootGuardStatus = text("正在检查 Root 自愈授权…", 15, COLOR_MUTED);
+        LinearLayout.LayoutParams rootStatusParams = matchWrap();
+        rootStatusParams.topMargin = dp(14);
+        permissionCard.addView(rootGuardStatus, rootStatusParams);
+        rootGuardButton = secondaryButton("授权 Root 自动修复");
+        permissionCard.addView(rootGuardButton, buttonParams());
+        rootGuardButton.setOnClickListener(v -> requestRootGuardPermission());
 
         LinearLayout configCard = card();
         root.addView(configCard, cardParams());
@@ -211,6 +221,25 @@ public final class MainActivity extends Activity {
         boolean overlayEnabled = Settings.canDrawOverlays(this);
         overlayStatus.setText(overlayEnabled ? "● 悬浮窗权限已允许" : "○ 悬浮窗权限未允许");
         overlayStatus.setTextColor(overlayEnabled ? COLOR_ACCENT : Color.rgb(255, 171, 112));
+        boolean rootGuardEnabled = AccessibilityGuard.hasSecureSettingsPermission(this);
+        rootGuardStatus.setText(rootGuardEnabled
+                ? "● Root 无障碍自愈已授权"
+                : "○ Root 无障碍自愈未授权（可选）");
+        rootGuardStatus.setTextColor(rootGuardEnabled ? COLOR_ACCENT : COLOR_MUTED);
+        rootGuardButton.setText(rootGuardEnabled ? "Root 自愈已启用" : "授权 Root 自动修复");
+        rootGuardButton.setEnabled(!rootGuardEnabled);
+    }
+
+    private void requestRootGuardPermission() {
+        rootGuardButton.setEnabled(false);
+        rootGuardButton.setText(R.string.root_grant_waiting);
+        AccessibilityGuard.requestRootGrant(this, (granted, message) -> {
+            if (granted) {
+                AccessibilityGuard.ensureOwnServiceEnabled(this);
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            updatePermissionStatus();
+        });
     }
 
     private boolean isAccessibilityEnabled() {

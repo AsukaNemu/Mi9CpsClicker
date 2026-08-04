@@ -7,4 +7,8 @@
     <string name="notification_title">米9 连点器正在待命</string>
     <string name="notification_text">点按返回设置页；可在悬浮窗开始或暂停。</string>
     <string name="config_summary">位置 %1$d, %2$d  ·  %3$d CPS  ·  %4$s 次</string>
+    <string name="root_grant_waiting">等待 Magisk 授权…</string>
+    <string name="guard_restoring">Root 自愈：正在恢复无障碍…</string>
+    <string name="guard_restarting">Root 自愈：服务恢复中…</string>
+    <string name="guard_failed">Root 自愈失败</string>
 </resources>
